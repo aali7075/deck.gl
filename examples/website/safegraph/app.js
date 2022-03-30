@@ -9,8 +9,9 @@ import {load} from '@loaders.gl/core';
 import {CSVLoader} from '@loaders.gl/csv';
 
 // Set your mapbox token here
-mapboxgl.accessToken = process.env.MapboxAccessToken; // eslint-disable-line
+mapboxgl.accessToken ='pk.eyJ1IjoiYWFsaTcwNzUiLCJhIjoiY2wwbjM0dnJqMThkejNrbGFsaHNyY2VxZCJ9.HhRT9oD4i-ccz5WL4QszAg'; // eslint-disable-line
 
+// Uses the fromula  y=m*log(x)+b
 const colorScale = scaleLog()
   .domain([10, 100, 1000, 10000])
   .range([
@@ -20,11 +21,13 @@ const colorScale = scaleLog()
     [227, 26, 28]
   ]);
 
+// Function will render the Map
 export function renderToDOM(container, data) {
-  const map = new mapboxgl.Map({
-    container,
-    style: 'mapbox://styles/mapbox/light-v9',
-    antialias: true,
+  //For more information about the map: https://docs.mapbox.com/mapbox-gl-js/api/map/
+  const map = new mapboxgl.Map({ //The Map object is the map on your page
+    container, // html element
+    style: 'mapbox://styles/mapbox/dark-v9',
+    antialias: true, // can turn off for better performance
     center: [-122.4034, 37.7845],
     zoom: 15.5,
     bearing: 20,
@@ -32,22 +35,22 @@ export function renderToDOM(container, data) {
   });
 
   map.addControl(new mapboxgl.NavigationControl(), 'top-left');
-
+  // listener for a event. In this case we're changing something when the map finshes loading
   map.on('load', () => {
-    map.addLayer({
+    map.addLayer({ // adding the 3d layer after loading
       id: '3d-buildings',
       source: 'composite',
       'source-layer': 'building',
-      filter: ['==', 'extrude', 'true'],
-      type: 'fill-extrusion',
-      minzoom: 14,
+      filter: ['==', 'extrude', 'true'], // only dislplay features if extrude is true
+      type: 'fill-extrusion', // fill color for extrusion
+      minzoom: 14, // minimum zoom to be seen at that layer
       paint: {
         'fill-extrusion-color': '#ccc',
         'fill-extrusion-height': ['get', 'height']
       }
     });
 
-    renderLayers(map, data);
+    renderLayers(map, data); 
   });
 
   return {
@@ -58,15 +61,16 @@ export function renderToDOM(container, data) {
   };
 }
 
+
 function renderLayers(map, data) {
   if (!data) {
     return;
   }
   let selectedPOICentroid;
-
+  // MapboxLayer allows any deck.gl layer to be rendered into Mapbox instead of as seperate layers
   const arcLayer = new MapboxLayer({
     id: 'deckgl-connections',
-    type: ArcLayer,
+    type: ArcLayer, // Creates an 3d arch 
     data: [],
     getSourcePosition: d => selectedPOICentroid,
     getTargetPosition: d => [d.home_lng, d.home_lat],
@@ -75,11 +79,11 @@ function renderLayers(map, data) {
     getWidth: d => Math.max(2, d.count / 15)
   });
 
-  const selectPOI = hex => {
-    const [lat, lng] = h3ToGeo(hex);
+  const selectPOI = hex => { // puts in the values 
+    const [lat, lng] = h3ToGeo(hex); // Gets the lat, lng given the hex id
     selectedPOICentroid = [lng, lat];
     arcLayer.setProps({
-      data: data.filter(d => d.hex === hex)
+      data: data.filter(d => d.hex === hex) // only grab the data point with the correct hex
     });
   };
 
@@ -87,16 +91,17 @@ function renderLayers(map, data) {
     id: 'deckgl-pois',
     type: H3HexagonLayer,
     data: aggregateHexes(data),
-    opacity: 0.4,
+    opacity: 0.5,
     pickable: true,
     autoHighlight: true,
+    // arrow function to return object and run selectPOI object return becomes d
     onClick: ({object}) => object && selectPOI(object.hex),
     getHexagon: d => d.hex,
     getFillColor: d => colorScale(d.count),
     extruded: false,
     stroked: false
   });
-
+  // a style is a JSON document that defines the visual appearance of a map. 
   map.addLayer(poiLayer, getFirstLabelLayerId(map.getStyle()));
   map.addLayer(arcLayer);
 
@@ -111,7 +116,7 @@ function aggregateHexes(data) {
     }
     result[object.hex].count += object.count;
   }
-  return Object.values(result);
+  return Object.values(result); // returns an array where each element is a tuple key value pair
 }
 
 function getFirstLabelLayerId(style) {
